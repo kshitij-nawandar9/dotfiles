@@ -1,0 +1,25 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Secrets
+*.secret
+*.pem
+*.key
+.env
+.env.local
+
+# Backup files
+*.bak
+*.swp
+*.swo
+*~
+
+# Claude memory (project-specific)
+.claude/
+
+# neovim runtime
+nvim/lazy-lock.json
+nvim/plugin/
+nvim/data/

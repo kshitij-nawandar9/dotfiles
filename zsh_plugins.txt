@@ -1,0 +1,8 @@
+# Antidote Plugins
+# One plugin per line
+
+# Oh-My-Zsh Git Plugin (100+ git aliases)
+ohmyzsh/ohmyzsh path:plugins/git
+
+# Oh-My-Zsh Kubectl Plugin (kubectl aliases and completions)
+ohmyzsh/ohmyzsh path:plugins/kubectl
