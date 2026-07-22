@@ -36,11 +36,19 @@ Beautiful Zsh setup with Fish-like features and Starship prompt.
   - Command duration
   - Language version info
 
-- **Go development environment** with:
-  - Go toolchain, `gopls`, `dlv` (debugger), `staticcheck` (linter)
-  - `~/src/<host>/<org>/<repo>` layout so directory path == import path
-  - `GOPRIVATE` preconfigured for private org modules
+- **TypeScript / Node development environment** with:
+  - `fnm` with `--use-on-cd` — auto-switches Node version per repo `.nvmrc`
+  - `NODE_AUTH_TOKEN` wired from the `gh` token for private GitHub Packages
+  - OrbStack as the Docker runtime for local infra
+  - Neovim LSP for TypeScript, ESLint, Prettier, Tailwind, SQL, Docker
+
+- **Repo organization** with:
+  - `~/src/<host>/<org>/<repo>` layout, mirroring the canonical repo path
   - `gclone` / `repo` shell helpers for cloning and jumping between repos
+
+- **Go toolchain** (secondary — used by a minority of repos):
+  - `go`, `gopls`, `dlv` (debugger), `staticcheck` (linter)
+  - `GOPRIVATE` preconfigured for private org modules, set only if Go is present
 
 - **Git configuration** with:
   - Per-directory identity (work email applies only inside the work org tree)
@@ -94,31 +102,62 @@ in `~/.zshrc.local` and re-running `install.sh` will leave them alone.
 > repo and re-install, or put it in `~/.zshrc.local`. A timestamped backup is
 > written to `~/.zshrc.backup.*` each time.
 
-## 🐹 Go Setup
+## 📁 Repo Layout
 
-### Repo layout
-
-Repos live at `~/src/<host>/<org>/<repo>`, mirroring the import path — so
-`github.com/telematicaHQ/api` is at `~/src/github.com/telematicaHQ/api`. You can
-always derive the directory from a module line and vice versa.
-
-`GOPATH` stays at `~/go` and holds only the module cache and installed binaries;
-source never goes there.
-
-### Helpers
+Repos live at `~/src/<host>/<org>/<repo>` — so `github.com/telematicaHQ/os` is at
+`~/src/github.com/telematicaHQ/os`. The path is derivable from the repo URL and
+vice versa, and it's what the per-directory git identity keys off.
 
 ```bash
-gclone telematicaHQ/api   # clone to ~/src/github.com/telematicaHQ/api and cd in
-repo api                  # jump to any repo under ~/src by name
+gclone telematicaHQ/os   # clone to ~/src/github.com/telematicaHQ/os and cd in
+repo os                  # jump to any repo under ~/src by name
 ```
 
-### Private modules
+## 📗 TypeScript / Node Setup
 
-`GOPRIVATE` is set in `zshrc.local` so Go skips the public proxy and checksum
-database for org repos. Both casings of the org are listed, because Go matches
-this against the module path exactly as written in `go.mod` while GitHub itself
-is case-insensitive.
+### Version switching
 
+`fnm` runs with `--use-on-cd`, so entering a repo switches Node to whatever its
+`.nvmrc` pins. Nothing to remember per project.
+
+```bash
+fnm install 24 && fnm default 24    # baseline
+node --version                      # verify inside a repo
+```
+
+### Private GitHub Packages
+
+Repos pulling private scopes (e.g. `@telematicahq/*` from `npm.pkg.github.com`)
+read `NODE_AUTH_TOKEN` from the environment. `zshrc.local` populates it from the
+`gh` token, which needs the `read:packages` scope:
+
+```bash
+gh auth refresh -s read:packages     # one-time, needs a real terminal
+```
+
+Without it, `npm install` fails with a **403** on the private package.
+
+### Turborepo gotcha
+
+In a Turborepo monorepo, run tasks through `turbo`, not `npm -w`:
+
+```bash
+turbo check-types --filter=backend      # builds workspace deps first ✅
+npm run check-types -w backend          # skips the task graph ❌
+```
+
+The second form reports dozens of bogus `Cannot find module '@repo/*'` errors
+(and cascading `implicitly has an 'any' type`) simply because dependent packages
+haven't been built. There's a `t` alias for `npx turbo` in `zshrc.local`.
+
+## 🐹 Go Setup (secondary)
+
+`GOPATH` stays at `~/go` and holds only the module cache and binaries — source
+lives under `~/src` like everything else. The Go block in `zshrc.local` is
+guarded by `command -v go`, so it's inert on machines without Go.
+
+`GOPRIVATE` lists **both casings** of the org, because Go matches it against the
+module path exactly as written in `go.mod` while GitHub is case-insensitive.
 Combined with the SSH rewrite in `gitconfig`, `go mod download` authenticates
 over SSH with no tokens involved.
 

@@ -2,25 +2,19 @@
 # Kept out of the main zshrc so `install.sh` never clobbers it.
 
 # ============================================
-# Go
-# ============================================
-# Source lives in ~/src/<host>/<org>/<repo> so the directory path matches the
-# import path. GOPATH holds only the module cache and installed binaries.
-export GOPATH="$HOME/go"
-export PATH="$GOPATH/bin:$PATH"
-# Private module paths: never proxy or checksum-verify these. Both casings are
-# listed because Go matches this against the module path exactly as written in
-# go.mod, and GitHub itself is case-insensitive.
-export GOPRIVATE="github.com/telematicaHQ/*,github.com/telematicahq/*"
-
-# ============================================
-# Node
+# Node / TypeScript  (primary stack)
 # ============================================
 # fnm with --use-on-cd auto-switches to the version in .nvmrc on cd.
 command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
+
 # GitHub Packages auth for the private @telematicahq scope (see os/.npmrc).
 # Needs a token with read:packages — `gh auth refresh -s read:packages` first.
 command -v gh >/dev/null && export NODE_AUTH_TOKEN="$(gh auth token 2>/dev/null)"
+
+# Turborepo: run a task with its dependencies built first. Running
+# `npm run <task> -w <pkg>` directly skips the task graph, so unbuilt workspace
+# packages surface as bogus "cannot find module @repo/*" errors.
+t() { npx turbo "$@"; }
 
 # ============================================
 # Repo navigation
@@ -41,3 +35,15 @@ repo() {
   d=$(find "$SRC" -mindepth 3 -maxdepth 3 -type d -name "*$1*" | head -1)
   [ -n "$d" ] && cd "$d" || echo "no repo matching '$1' under $SRC" >&2
 }
+
+# ============================================
+# Go  (secondary — only active if Go is installed)
+# ============================================
+if command -v go >/dev/null; then
+  export GOPATH="$HOME/go"
+  export PATH="$GOPATH/bin:$PATH"
+  # Private module paths: never proxy or checksum-verify these. Both casings are
+  # listed because Go matches this against the module path exactly as written in
+  # go.mod, and GitHub itself is case-insensitive.
+  export GOPRIVATE="github.com/telematicaHQ/*,github.com/telematicahq/*"
+fi

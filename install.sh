@@ -19,9 +19,24 @@ fi
 echo "📦 Installing shell tools..."
 brew install starship zsh-autosuggestions zsh-syntax-highlighting antidote tldr
 
-# Install Go toolchain
+# Install dev tooling
+echo "🛠  Installing dev tooling..."
+brew install gh git-delta jq
+
+# Node / TypeScript — the primary stack. fnm reads .nvmrc per repo.
+echo "📗 Installing Node toolchain..."
+brew install fnm
+eval "$(fnm env --shell bash)"
+fnm install 24
+fnm default 24
+
+# Docker runtime for local infra (Postgres, Redis, Kafka, Temporal).
+echo "🐳 Installing OrbStack..."
+brew install --cask orbstack
+
+# Go — optional, only used by a minority of repos. Comment out if unneeded.
 echo "🐹 Installing Go toolchain..."
-brew install go gh git-delta jq
+brew install go
 go install golang.org/x/tools/gopls@latest
 go install github.com/go-delve/delve/cmd/dlv@latest
 go install honnef.co/go/tools/cmd/staticcheck@latest
