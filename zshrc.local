@@ -14,6 +14,15 @@ export PATH="$GOPATH/bin:$PATH"
 export GOPRIVATE="github.com/telematicaHQ/*,github.com/telematicahq/*"
 
 # ============================================
+# Node
+# ============================================
+# fnm with --use-on-cd auto-switches to the version in .nvmrc on cd.
+command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
+# GitHub Packages auth for the private @telematicahq scope (see os/.npmrc).
+# Needs a token with read:packages — `gh auth refresh -s read:packages` first.
+command -v gh >/dev/null && export NODE_AUTH_TOKEN="$(gh auth token 2>/dev/null)"
+
+# ============================================
 # Repo navigation
 # ============================================
 export SRC="$HOME/src"
