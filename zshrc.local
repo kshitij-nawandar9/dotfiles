@@ -1,0 +1,34 @@
+# Machine-local shell config — sourced at the end of ~/.zshrc.
+# Kept out of the main zshrc so `install.sh` never clobbers it.
+
+# ============================================
+# Go
+# ============================================
+# Source lives in ~/src/<host>/<org>/<repo> so the directory path matches the
+# import path. GOPATH holds only the module cache and installed binaries.
+export GOPATH="$HOME/go"
+export PATH="$GOPATH/bin:$PATH"
+# Private module paths: never proxy or checksum-verify these. Both casings are
+# listed because Go matches this against the module path exactly as written in
+# go.mod, and GitHub itself is case-insensitive.
+export GOPRIVATE="github.com/telematicaHQ/*,github.com/telematicahq/*"
+
+# ============================================
+# Repo navigation
+# ============================================
+export SRC="$HOME/src"
+
+# gclone telematicaHQ/foo  ->  clone to ~/src/github.com/telematicaHQ/foo and cd
+gclone() {
+  local slug="${1:?usage: gclone <org>/<repo> [host]}" host="${2:-github.com}"
+  local dest="$SRC/$host/$slug"
+  [ -d "$dest" ] || git clone "git@$host:$slug.git" "$dest" || return 1
+  cd "$dest"
+}
+
+# repo <name>  ->  jump to any repo under ~/src by directory name
+repo() {
+  local d
+  d=$(find "$SRC" -mindepth 3 -maxdepth 3 -type d -name "*$1*" | head -1)
+  [ -n "$d" ] && cd "$d" || echo "no repo matching '$1' under $SRC" >&2
+}

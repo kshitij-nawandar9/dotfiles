@@ -1,8 +1,16 @@
 # Zsh Configuration
 
 # ============================================
+# Homebrew
+# ============================================
+# Must come first: everything below lives under the brew prefix.
+[ -x /opt/homebrew/bin/brew ] && eval "$(/opt/homebrew/bin/brew shellenv)"
+
+# ============================================
 # PATH Configuration
 # ============================================
+# Claude Code and other user-installed binaries
+export PATH="$HOME/.local/bin:$PATH"
 # Add Cursor and VS Code CLI tools to PATH
 # Note: Added in reverse order so VS Code's 'code' command takes precedence
 export PATH="/Applications/Cursor.app/Contents/Resources/app/bin:$PATH"
@@ -170,3 +178,9 @@ ZSH_AUTOSUGGEST_STRATEGY=(history completion)
 # Syntax Highlighting (Must be last)
 # ============================================
 source /opt/homebrew/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# ============================================
+# Machine-local overrides (not tracked verbatim)
+# ============================================
+# Language toolchains, work-specific env, anything not portable.
+[ -f ~/.zshrc.local ] && source ~/.zshrc.local

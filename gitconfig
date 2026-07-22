@@ -1,0 +1,51 @@
+[user]
+	# Personal identity. The work identity is layered on top by the includeIf
+	# below, and lives in untracked ~/.gitconfig-work.
+	name = Kshitij Nawandar
+	email = nawandar.kshitij@gmail.com
+
+[includeIf "gitdir/i:~/src/github.com/telematicaHQ/"]
+	path = ~/.gitconfig-work
+
+[init]
+	defaultBranch = main
+
+[pull]
+	rebase = true
+
+[fetch]
+	prune = true
+	prunetags = true
+
+[push]
+	default = current
+	autoSetupRemote = true
+
+[rebase]
+	autosquash = true
+	autostash = true
+
+[diff]
+	algorithm = histogram
+	colorMoved = zebra
+
+[merge]
+	conflictstyle = zdiff3
+
+[branch]
+	sort = -committerdate
+
+[rerere]
+	enabled = true
+
+[core]
+	excludesfile = ~/.gitignore_global
+
+# Scope the SSH rewrite to our own orgs only. A blanket
+# `git@github.com: insteadOf https://github.com/` breaks every tool that
+# clones a public repo over https (Homebrew, taps, vendored deps) by forcing
+# it through SSH auth it doesn't have.
+[url "git@github.com:telematicaHQ/"]
+	insteadOf = https://github.com/telematicaHQ/
+[url "git@github.com:kshitij-nawandar9/"]
+	insteadOf = https://github.com/kshitij-nawandar9/
