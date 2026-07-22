@@ -36,68 +36,155 @@ Beautiful Zsh setup with Fish-like features and Starship prompt.
   - Command duration
   - Language version info
 
+- **Go development environment** with:
+  - Go toolchain, `gopls`, `dlv` (debugger), `staticcheck` (linter)
+  - `~/src/<host>/<org>/<repo>` layout so directory path == import path
+  - `GOPRIVATE` preconfigured for private org modules
+  - `gclone` / `repo` shell helpers for cloning and jumping between repos
+
+- **Git configuration** with:
+  - Per-directory identity (work email applies only inside the work org tree)
+  - Sane defaults: rebase-on-pull, auto-upstream, prune, `zdiff3` conflicts
+  - SSH rewrite scoped to your own orgs
+  - Global gitignore
+
 - **JetBrains Mono Nerd Font** for icons
 
 ## 🚀 Quick Start (New Machine)
 
-### Option 1: Automated Install
+Run these in **Terminal.app**, not an editor-embedded shell — the Homebrew
+installer needs a real TTY to prompt for your password.
 
 ```bash
-cd ~/dotfiles
-./install.sh
-```
-
-### Option 2: Manual Install
-
-```bash
-# 1. Install Homebrew
+# 1. Install Homebrew, then clone and install in one go
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+eval "$(/opt/homebrew/bin/brew shellenv)"
 
-# 2. Install packages
-brew install starship zsh-autosuggestions zsh-syntax-highlighting neovim
-brew install --cask font-jetbrains-mono-nerd-font kitty nikitabobko/tap/aerospace
+mkdir -p ~/src/github.com/kshitij-nawandar9
+git clone https://github.com/kshitij-nawandar9/dotfiles.git \
+  ~/src/github.com/kshitij-nawandar9/dotfiles
+cd ~/src/github.com/kshitij-nawandar9/dotfiles
+./install.sh
 
-# 3. Copy configs
-cp zshrc ~/.zshrc
-mkdir -p ~/.config
-cp starship.toml ~/.config/starship.toml
-cp -r kitty ~/.config/kitty
-cp -r nvim ~/.config/nvim
-cp -r aerospace ~/.config/aerospace
+# 2. Authenticate GitHub (generates and uploads an SSH key for you)
+gh auth login          # GitHub.com -> SSH -> generate key -> web browser
 
-# 4. Reload shell
+# 3. Reload
 source ~/.zshrc
 ```
 
-## 📤 Backing Up to GitHub
+Then create `~/.gitconfig-work` with your work identity (see
+[Git Identity](#-git-identity) below), and you're done.
 
-To use this on multiple machines, push to GitHub:
+## 🧱 How the Zsh Config Is Layered
+
+There are two shell files, and the distinction matters:
+
+| File | Tracked? | Overwritten by `install.sh`? | Holds |
+|---|---|---|---|
+| `~/.zshrc` | yes, as `zshrc` | **always** | Portable config — aliases, plugins, prompt |
+| `~/.zshrc.local` | seeded from `zshrc.local` | **never, if it exists** | Machine-specific — toolchains, work env, secrets |
+
+`~/.zshrc` sources `~/.zshrc.local` as its very last line, so anything there
+wins. Put machine-specific things (`GOPRIVATE`, API tokens, per-client paths)
+in `~/.zshrc.local` and re-running `install.sh` will leave them alone.
+
+> ⚠️ `install.sh` copies `zshrc` over `~/.zshrc` unconditionally. Any edit you
+> make directly to `~/.zshrc` is lost on the next run — edit `zshrc` in this
+> repo and re-install, or put it in `~/.zshrc.local`. A timestamped backup is
+> written to `~/.zshrc.backup.*` each time.
+
+## 🐹 Go Setup
+
+### Repo layout
+
+Repos live at `~/src/<host>/<org>/<repo>`, mirroring the import path — so
+`github.com/telematicaHQ/api` is at `~/src/github.com/telematicaHQ/api`. You can
+always derive the directory from a module line and vice versa.
+
+`GOPATH` stays at `~/go` and holds only the module cache and installed binaries;
+source never goes there.
+
+### Helpers
 
 ```bash
-cd ~/dotfiles
-git init
-git add .
-git commit -m "Initial dotfiles commit"
-git branch -M main
-git remote add origin https://github.com/YOUR_USERNAME/dotfiles.git
-git push -u origin main
+gclone telematicaHQ/api   # clone to ~/src/github.com/telematicaHQ/api and cd in
+repo api                  # jump to any repo under ~/src by name
 ```
 
-## 📥 Installing from GitHub (Future Machines)
+### Private modules
+
+`GOPRIVATE` is set in `zshrc.local` so Go skips the public proxy and checksum
+database for org repos. Both casings of the org are listed, because Go matches
+this against the module path exactly as written in `go.mod` while GitHub itself
+is case-insensitive.
+
+Combined with the SSH rewrite in `gitconfig`, `go mod download` authenticates
+over SSH with no tokens involved.
+
+## 🔑 Git Identity
+
+`gitconfig` sets the personal identity globally and layers the work identity on
+top **only inside the work org directory**:
+
+```gitconfig
+[includeIf "gitdir/i:~/src/github.com/telematicaHQ/"]
+	path = ~/.gitconfig-work
+```
+
+`~/.gitconfig-work` is **not tracked here** — that keeps a work email out of a
+public repo. Create it by hand on each machine:
 
 ```bash
-# Clone your dotfiles
-git clone https://github.com/YOUR_USERNAME/dotfiles.git ~/dotfiles
+cat > ~/.gitconfig-work <<'EOF'
+[user]
+	email = you@work.example
+EOF
+```
 
-# Run install script
-cd ~/dotfiles
-chmod +x install.sh
-./install.sh
+If the file is missing, git silently ignores the include, so the config stays
+portable to machines that don't need it.
+
+Verify both resolve correctly:
+
+```bash
+git -C ~/src/github.com/telematicaHQ/any-repo config user.email   # work
+git -C ~/src/github.com/kshitij-nawandar9/dotfiles config user.email  # personal
+```
+
+> `gitdir/i` is the case-insensitive form. It matters because macOS filesystems
+> are case-insensitive, so `cd`-ing to a differently-cased path would otherwise
+> silently skip the work identity.
+
+### SSH rewrite scope
+
+```gitconfig
+[url "git@github.com:telematicaHQ/"]
+	insteadOf = https://github.com/telematicaHQ/
+```
+
+Scoped deliberately to your own orgs. A blanket
+`git@github.com: insteadOf https://github.com/` rewrites **every** GitHub URL to
+SSH, which breaks any tool cloning a public repo over https — including the
+Homebrew installer, which fails with `Permission denied (publickey)` on a
+machine that has no key yet.
+
+## 📤 Pushing Changes
+
+```bash
+cd ~/src/github.com/kshitij-nawandar9/dotfiles
+git add .
+git commit -m "Update configs"
+git push
 ```
 
 ## 📝 Files
 
-- `zshrc` - Zsh configuration
+- `zshrc` - Zsh configuration (portable layer, always overwritten on install)
+- `zshrc.local` - Machine-local layer: Go env, `GOPRIVATE`, `gclone`/`repo`
+  helpers. Seeds `~/.zshrc.local` only if absent — never clobbered
+- `gitconfig` - Git defaults + per-directory identity
+- `gitignore_global` - Global gitignore (`.DS_Store`, editor cruft, `__debug_bin*`)
 - `starship.toml` - Starship prompt config
 - `kitty/` - Kitty terminal config
 - `nvim/` - Neovim + LazyVim config
@@ -177,19 +264,20 @@ LazyVim will automatically install all plugins (takes 1-2 minutes).
 
 ## 🔄 Keeping Dotfiles Updated
 
-After making changes to your configs:
+Edit the files **in this repo**, then re-run `./install.sh` to push them out.
+Copying the other direction also works if you edited a config in place:
 
 ```bash
-# Copy latest configs to dotfiles
-cp ~/.zshrc ~/dotfiles/zshrc
-cp ~/.config/starship.toml ~/dotfiles/starship.toml
+cd ~/src/github.com/kshitij-nawandar9/dotfiles
+cp ~/.config/starship.toml starship.toml
+cp ~/.gitconfig gitconfig
 
-# If using git
-cd ~/dotfiles
-git add .
-git commit -m "Update configs"
-git push
+git add . && git commit -m "Update configs" && git push
 ```
+
+Do **not** copy `~/.zshrc.local` back into `zshrc.local` without reading the
+diff — the live file is where machine-specific values accumulate, and some of
+them (work paths, tokens) don't belong in a public repo.
 
 ## ✨ Features
 
@@ -221,6 +309,53 @@ git push
 ### Starship not showing
 - Check installation: `starship --version`
 - Check if initialized: `grep starship ~/.zshrc`
+
+### Homebrew install fails with `Permission denied (publickey)`
+A global SSH rewrite in `~/.gitconfig` is redirecting Homebrew's https clone to
+SSH. Confirm with:
+
+```bash
+git ls-remote --get-url https://github.com/Homebrew/brew   # must stay https
+```
+
+If it prints `git@github.com:...`, your `insteadOf` is unscoped. Use the
+per-org form shown in [SSH rewrite scope](#ssh-rewrite-scope).
+
+If the install already half-completed, `/opt/homebrew` exists but is empty. It's
+owned by you at that point, so no `sudo` is needed to finish it:
+
+```bash
+git -C /opt/homebrew fetch --force origin
+git -C /opt/homebrew reset --hard origin/main
+```
+
+### Homebrew install aborts with `Need sudo access`
+You're running it through a pipe or non-TTY shell, so `sudo` can't prompt. Run
+it in Terminal.app directly. (Check you're an admin with `id -Gn | grep admin`.)
+
+### A command vanished after running `install.sh`
+`install.sh` overwrites `~/.zshrc` wholesale. If a `PATH` entry lived only in
+your local `~/.zshrc`, it's gone. Restore from the backup it made:
+
+```bash
+ls -t ~/.zshrc.backup.*
+```
+
+Then move the missing line into `~/.zshrc.local` so it survives next time.
+
+### `go mod download` fails with 410 Gone or a checksum mismatch
+The module path's casing doesn't match `GOPRIVATE`, or the repo is private and
+the SSH rewrite isn't applying. Check both:
+
+```bash
+echo $GOPRIVATE
+git ls-remote --get-url https://github.com/telematicaHQ/some-repo  # want git@...
+```
+
+### Commits show the wrong email
+The per-directory identity only applies under the work org path. Check with
+`git config user.email` inside the repo. Note that `git commit --amend`
+preserves the original author — use `--amend --reset-author` to correct it.
 
 ## 📚 Resources
 
