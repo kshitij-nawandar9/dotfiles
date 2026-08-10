@@ -149,6 +149,7 @@ different situations:
 | A subdirectory of where you are | `Alt+C` | fzf, standard binding |
 | Any directory under `~/src`, ever visited or not | `fcd [query]` | fzf over the whole tree |
 | A repo by name | `repo <name>` | matches `~/src/<host>/<org>/<repo>` |
+| To *open* a repo in your editor | `code <few chars>` | same shorthand as `cd` |
 
 ### `cd` is zoxide now
 
@@ -181,6 +182,35 @@ With multiple matches you get the picker with the best match already on top
 (fzf's `--scheme=path` scores the final path segment highest, so
 `dotfiles/nvim` outranks an incidental hit deep in a `node_modules`-adjacent
 tree). `.git` and `node_modules` are excluded from the walk.
+
+### Editors take the same shorthand
+
+`code` accepts the same fragments `cd` does, so you can open a repo without
+knowing where it lives:
+
+```bash
+code dot          # opens ~/src/github.com/kshitij-nawandar9/dotfiles
+code tele os      # opens ~/src/github.com/telematicaHQ/os
+```
+
+The wrapper is deliberately conservative, because `code` is also how you create
+a new file. An argument reaches zoxide only when **every** argument is a bare
+word — no leading dash, no slash, no dot, and nothing that already exists on
+disk — *and* zoxide recognises it. Everything else is passed straight through:
+
+| Command | Behaviour |
+|---|---|
+| `code newfile.ts` | stock — creates the file, never redirected (has a dot) |
+| `code src/app.ts` | stock — has a slash |
+| `code .` / `code ~/src` | stock — the path exists |
+| `code --diff a.ts b.ts` | stock — starts with a dash |
+| `code existingdir` | stock — a local directory always beats the database |
+| `code unknownword` | stock — zoxide has no match, so nothing is substituted |
+| `code dot` | resolved via zoxide |
+
+Wrappers are defined only for editors actually installed on the machine, so
+nothing shadows a missing command. `cursor` is included in the list and will
+start working automatically if you install it.
 
 ### Keybindings from fzf
 

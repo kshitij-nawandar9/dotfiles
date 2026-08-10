@@ -264,6 +264,45 @@ if command -v fzf >/dev/null; then
 fi
 
 # ============================================
+# Editors take the same shorthand as `cd`
+# ============================================
+# `code dot` opens the dotfiles repo; `code tele os` opens the os monorepo.
+#
+# Resolution is deliberately conservative, because these commands are also how
+# you create a new file. An argument is only sent to zoxide when EVERY argument
+# is a bare word — no leading dash, no slash, no dot, and not something that
+# already exists on disk — and zoxide actually recognises it. So `code .`,
+# `code src/app.ts`, `code newfile.ts`, `code --diff a b` and a bare `code` all
+# keep their stock meaning, and an unrecognised word is passed through
+# untouched rather than being silently redirected somewhere surprising.
+if command -v zoxide >/dev/null; then
+  __zoxide_editor() {
+    local editor="$1"; shift
+    (( $# )) || { command "$editor"; return }
+
+    local a
+    for a in "$@"; do
+      [[ $a == -* || $a == */* || $a == *.* || -e $a ]] && { command "$editor" "$@"; return }
+    done
+
+    local dir
+    if dir=$(zoxide query -- "$@" 2>/dev/null) && [[ -n $dir ]]; then
+      command "$editor" "$dir"
+    else
+      command "$editor" "$@"
+    fi
+  }
+
+  # Defined only for editors present on this machine, so the wrapper never
+  # shadows a command that isn't there.
+  for _zed in code cursor; do
+    command -v "$_zed" >/dev/null \
+      && eval "${_zed}() { __zoxide_editor ${_zed} \"\$@\" }"
+  done
+  unset _zed
+fi
+
+# ============================================
 # Starship Prompt
 # ============================================
 eval "$(starship init zsh)"
