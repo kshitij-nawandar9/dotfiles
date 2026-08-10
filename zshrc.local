@@ -1,52 +1,25 @@
 # Machine-local shell config — sourced at the end of ~/.zshrc.
-# Kept out of the main zshrc so `install.sh` never clobbers it.
+#
+# Keep this file SMALL. `install.sh` seeds it only when it doesn't already
+# exist, so anything placed here is frozen on every machine that has already
+# run the installer — improvements never propagate. Portable config therefore
+# belongs in `zshrc` (which is overwritten on every install), and only two
+# kinds of thing belong here:
+#
+#   1. secrets and credentials, which must stay out of a public repo
+#   2. values that genuinely differ between machines
+#
+# Everything below is guarded, so this file is also safe to leave in place on a
+# machine that has none of the relevant tooling installed.
 
 # ============================================
-# Node / TypeScript  (primary stack)
+# Credentials
 # ============================================
-# fnm with --use-on-cd auto-switches to the version in .nvmrc on cd.
-command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
-
 # GitHub Packages auth for the private @telematicahq scope (see os/.npmrc).
-# Needs a token with read:packages — `gh auth refresh -s read:packages` first.
+# Read from the gh keychain at shell start rather than stored here, so no token
+# is ever written to disk. Needs read:packages — run `gh auth refresh -s
+# read:packages` once, in a real terminal.
 command -v gh >/dev/null && export NODE_AUTH_TOKEN="$(gh auth token 2>/dev/null)"
-
-# Turborepo: run a task with its dependencies built first. Running
-# `npm run <task> -w <pkg>` directly skips the task graph, so unbuilt workspace
-# packages surface as bogus "cannot find module @repo/*" errors.
-t() { npx turbo "$@"; }
-
-# ============================================
-# Repo navigation
-# ============================================
-export SRC="$HOME/src"
-
-# gclone telematicaHQ/foo  ->  clone to ~/src/github.com/telematicaHQ/foo and cd
-gclone() {
-  local slug="${1:?usage: gclone <org>/<repo> [host]}" host="${2:-github.com}"
-  local dest="$SRC/$host/$slug"
-  [ -d "$dest" ] || git clone "git@$host:$slug.git" "$dest" || return 1
-  cd "$dest"
-}
-
-# repo <name>  ->  jump to any repo under ~/src by directory name.
-# Exactly one match jumps straight there; several open an fzf picker rather
-# than silently taking the first hit and landing you in the wrong repo.
-repo() {
-  local -a matches
-  matches=(${(f)"$(find "$SRC" -mindepth 3 -maxdepth 3 -type d -name "*$1*" 2>/dev/null)"})
-  case ${#matches} in
-    0) echo "no repo matching '$1' under $SRC" >&2; return 1 ;;
-    1) cd "${matches[1]}" ;;
-    *) if command -v fzf >/dev/null; then
-         local d
-         d=$(print -l -- "${matches[@]}" | fzf --prompt='repo> ') || return
-         [ -n "$d" ] && cd "$d"
-       else
-         cd "${matches[1]}"
-       fi ;;
-  esac
-}
 
 # ============================================
 # Go  (secondary — only active if Go is installed)

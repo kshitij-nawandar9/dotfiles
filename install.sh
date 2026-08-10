@@ -81,9 +81,21 @@ cp gitignore_global ~/.gitignore_global
 mkdir -p ~/src/github.com/telematicaHQ ~/src/github.com/kshitij-nawandar9
 mkdir -p ~/.config
 cp starship.toml ~/.config/starship.toml
-cp -r kitty ~/.config/kitty
-cp -r nvim ~/.config/nvim
-cp -r aerospace ~/.config/aerospace
+
+# Copy a config directory's *contents* into place, creating the target first.
+# `cp -R src dest` nests as dest/src when dest already exists, so the plain form
+# quietly produces ~/.config/nvim/nvim on every run after the first. The
+# trailing `/.` copies what's inside src instead, which is idempotent.
+# Files you added locally and that aren't in the repo are left alone.
+install_config_dir() {
+  local src="$1" dest="$2"
+  mkdir -p "$dest"
+  cp -R "$src/." "$dest/"
+}
+
+install_config_dir kitty ~/.config/kitty
+install_config_dir nvim ~/.config/nvim
+install_config_dir aerospace ~/.config/aerospace
 
 echo "✅ Installation complete!"
 echo ""

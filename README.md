@@ -99,13 +99,29 @@ There are two shell files, and the distinction matters:
 | `~/.zshrc.local` | seeded from `zshrc.local` | **never, if it exists** | Machine-specific — toolchains, work env, secrets |
 
 `~/.zshrc` sources `~/.zshrc.local` as its very last line, so anything there
-wins. Put machine-specific things (`GOPRIVATE`, API tokens, per-client paths)
-in `~/.zshrc.local` and re-running `install.sh` will leave them alone.
+wins.
+
+**Keep `~/.zshrc.local` small.** Because it's seeded once and never overwritten,
+whatever lands there is *frozen on every machine that has already run the
+installer* — an improvement to it will silently never reach them. Only two kinds
+of thing justify that cost:
+
+1. **secrets and credentials**, which can't go in a public repo
+2. **values that genuinely differ between machines**
+
+Everything else — helper functions, aliases, toolchain setup that's the same
+everywhere — belongs in `zshrc`, where re-running `install.sh` actually
+propagates it. In practice that leaves `zshrc.local` holding just
+`NODE_AUTH_TOKEN` and the Go block.
 
 > ⚠️ `install.sh` copies `zshrc` over `~/.zshrc` unconditionally. Any edit you
 > make directly to `~/.zshrc` is lost on the next run — edit `zshrc` in this
 > repo and re-install, or put it in `~/.zshrc.local`. A timestamped backup is
 > written to `~/.zshrc.backup.*` each time.
+
+> ⚠️ The flip side: a change to `zshrc.local` in this repo reaches only *new*
+> machines. To roll one out to a machine you already use, apply it to
+> `~/.zshrc.local` by hand. This is the main reason to keep that file thin.
 
 ## 📁 Repo Layout
 
@@ -183,7 +199,9 @@ machine where these tools aren't installed — you just get plain `cd` back.
 ### Version switching
 
 `fnm` runs with `--use-on-cd`, so entering a repo switches Node to whatever its
-`.nvmrc` pins. Nothing to remember per project.
+`.nvmrc` pins. Nothing to remember per project. It hooks `chpwd` rather than the
+`cd` command itself, so it fires on a zoxide jump (`cd os`) exactly as it does
+on a literal `cd ./path`.
 
 ```bash
 fnm install 24 && fnm default 24    # baseline
@@ -213,12 +231,13 @@ npm run check-types -w backend          # skips the task graph ❌
 
 The second form reports dozens of bogus `Cannot find module '@repo/*'` errors
 (and cascading `implicitly has an 'any' type`) simply because dependent packages
-haven't been built. There's a `t` alias for `npx turbo` in `zshrc.local`.
+haven't been built. There's a `t` helper for `npx turbo` in `zshrc`.
 
 ## 🐹 Go Setup (secondary)
 
 `GOPATH` stays at `~/go` and holds only the module cache and binaries — source
-lives under `~/src` like everything else. The Go block in `zshrc.local` is
+lives under `~/src` like everything else. The Go block stays in `zshrc.local`
+because `GOPRIVATE` is org-specific rather than portable, and it is
 guarded by `command -v go`, so it's inert on machines without Go.
 
 `GOPRIVATE` lists **both casings** of the org, because Go matches it against the
@@ -286,8 +305,9 @@ git push
 
 - `zshrc` - Zsh configuration (portable layer, always overwritten on install).
   Includes the zoxide/fzf navigation block — see [Directory Navigation](#-directory-navigation)
-- `zshrc.local` - Machine-local layer: Go env, `GOPRIVATE`, `gclone`/`repo`
-  helpers. Seeds `~/.zshrc.local` only if absent — never clobbered
+- `zshrc.local` - Machine-local layer, deliberately minimal: `NODE_AUTH_TOKEN`
+  and the Go/`GOPRIVATE` block. Seeds `~/.zshrc.local` only if absent — never
+  clobbered, and therefore never updated on an existing machine either
 - `gitconfig` - Git defaults + per-directory identity
 - `gitignore_global` - Global gitignore (`.DS_Store`, editor cruft, `__debug_bin*`)
 - `starship.toml` - Starship prompt config

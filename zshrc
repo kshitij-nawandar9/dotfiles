@@ -163,6 +163,51 @@ bindkey "^[[A" up-line-or-beginning-search    # Up arrow
 bindkey "^[[B" down-line-or-beginning-search  # Down arrow
 
 # ============================================
+# Node / TypeScript  (primary stack)
+# ============================================
+# fnm with --use-on-cd auto-switches to the version in .nvmrc on cd. The hook is
+# a chpwd hook, so it still fires when zoxide's `cd` jumps you somewhere.
+command -v fnm >/dev/null && eval "$(fnm env --use-on-cd --shell zsh)"
+
+# Turborepo: run a task with its dependencies built first. Running
+# `npm run <task> -w <pkg>` directly skips the task graph, so unbuilt workspace
+# packages surface as bogus "cannot find module @repo/*" errors.
+t() { npx turbo "$@"; }
+
+# ============================================
+# Repo Layout
+# ============================================
+# Repos live at ~/src/<host>/<org>/<repo>, mirroring the canonical repo path.
+export SRC="$HOME/src"
+
+# gclone telematicaHQ/foo  ->  clone to ~/src/github.com/telematicaHQ/foo and cd
+gclone() {
+  local slug="${1:?usage: gclone <org>/<repo> [host]}" host="${2:-github.com}"
+  local dest="$SRC/$host/$slug"
+  [ -d "$dest" ] || git clone "git@$host:$slug.git" "$dest" || return 1
+  cd "$dest"
+}
+
+# repo <name>  ->  jump to any repo under ~/src by directory name.
+# Exactly one match jumps straight there; several open an fzf picker rather
+# than silently taking the first hit and landing you in the wrong repo.
+repo() {
+  local -a matches
+  matches=(${(f)"$(find "$SRC" -mindepth 3 -maxdepth 3 -type d -name "*$1*" 2>/dev/null)"})
+  case ${#matches} in
+    0) echo "no repo matching '$1' under $SRC" >&2; return 1 ;;
+    1) cd "${matches[1]}" ;;
+    *) if command -v fzf >/dev/null; then
+         local d
+         d=$(print -l -- "${matches[@]}" | fzf --prompt='repo> ') || return
+         [ -n "$d" ] && cd "$d"
+       else
+         cd "${matches[1]}"
+       fi ;;
+  esac
+}
+
+# ============================================
 # Directory Navigation (zoxide + fzf)
 # ============================================
 # Both blocks are guarded, so this file stays portable to a machine where

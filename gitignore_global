@@ -3,3 +3,6 @@
 .idea/
 .vscode/
 __debug_bin*
+
+# Claude Code per-project local settings — machine-specific, never shared.
+**/.claude/settings.local.json
