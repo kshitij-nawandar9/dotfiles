@@ -163,6 +163,62 @@ bindkey "^[[A" up-line-or-beginning-search    # Up arrow
 bindkey "^[[B" down-line-or-beginning-search  # Down arrow
 
 # ============================================
+# Directory Navigation (zoxide + fzf)
+# ============================================
+# Both blocks are guarded, so this file stays portable to a machine where
+# neither tool is installed — you just fall back to plain `cd`.
+
+# zoxide takes over `cd` itself: it remembers every directory you visit and
+# ranks them by frecency, so a few characters are enough to jump anywhere.
+#   cd dot        -> ~/src/github.com/kshitij-nawandar9/dotfiles
+#   cd tele os    -> ~/src/github.com/telematicaHQ/os   (multiple keywords AND)
+#   cdi           -> interactive fzf picker over everything zoxide knows
+# Literal paths are still handled by the real builtin, so `cd ..`, `cd ./foo`,
+# `cd -` and shell scripts behave exactly as before.
+if command -v zoxide >/dev/null; then
+  eval "$(zoxide init zsh --cmd cd)"
+fi
+
+if command -v fzf >/dev/null; then
+  # Ctrl+T  insert a file path into the current command line
+  # Ctrl+R  fuzzy history search
+  # Alt+C   cd into a subdirectory of $PWD
+  # (Alt+C needs `macos_option_as_alt yes` in kitty.conf — it's already set.)
+  source <(fzf --zsh)
+
+  export FZF_DEFAULT_OPTS='--height=40% --layout=reverse --border --info=inline'
+
+  # fd is faster than find and respects .gitignore. Skip .git and node_modules
+  # explicitly — they're the two directory trees never worth walking here.
+  if command -v fd >/dev/null; then
+    export FZF_ALT_C_COMMAND='fd --type d --hidden --exclude .git --exclude node_modules'
+    export FZF_CTRL_T_COMMAND='fd --type f --hidden --exclude .git --exclude node_modules'
+  fi
+
+  # --scheme=path scores whole paths rather than flat strings, which ranks the
+  # match in the final segment above incidental hits deep in a vendor tree.
+  export FZF_ALT_C_OPTS='--scheme=path'
+  export FZF_CTRL_T_OPTS='--scheme=path'
+
+  # fcd [query] — fuzzy-cd to any directory under ~/src, however deep, whether
+  # or not you've ever visited it. This is the cold-start counterpart to `cd`:
+  # zoxide only knows where you've been, fcd searches the whole tree.
+  fcd() {
+    local root="${SRC:-$HOME/src}" dir finder
+    if command -v fd >/dev/null; then
+      finder=(fd --type d --hidden --exclude .git --exclude node_modules . "$root")
+    else
+      finder=(find "$root" -type d -not -path '*/.git/*' -not -path '*/node_modules/*')
+    fi
+    # --select-1 skips the picker when the query already narrows it to one hit;
+    # with several hits you get the list, best match already on top.
+    dir=$("${finder[@]}" 2>/dev/null \
+      | fzf --scheme=path --query="${1:-}" --select-1 --exit-0) || return
+    [ -n "$dir" ] && cd "$dir"
+  }
+fi
+
+# ============================================
 # Starship Prompt
 # ============================================
 eval "$(starship init zsh)"

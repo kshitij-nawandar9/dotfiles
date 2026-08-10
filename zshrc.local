@@ -29,11 +29,23 @@ gclone() {
   cd "$dest"
 }
 
-# repo <name>  ->  jump to any repo under ~/src by directory name
+# repo <name>  ->  jump to any repo under ~/src by directory name.
+# Exactly one match jumps straight there; several open an fzf picker rather
+# than silently taking the first hit and landing you in the wrong repo.
 repo() {
-  local d
-  d=$(find "$SRC" -mindepth 3 -maxdepth 3 -type d -name "*$1*" | head -1)
-  [ -n "$d" ] && cd "$d" || echo "no repo matching '$1' under $SRC" >&2
+  local -a matches
+  matches=(${(f)"$(find "$SRC" -mindepth 3 -maxdepth 3 -type d -name "*$1*" 2>/dev/null)"})
+  case ${#matches} in
+    0) echo "no repo matching '$1' under $SRC" >&2; return 1 ;;
+    1) cd "${matches[1]}" ;;
+    *) if command -v fzf >/dev/null; then
+         local d
+         d=$(print -l -- "${matches[@]}" | fzf --prompt='repo> ') || return
+         [ -n "$d" ] && cd "$d"
+       else
+         cd "${matches[1]}"
+       fi ;;
+  esac
 }
 
 # ============================================

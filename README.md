@@ -42,6 +42,11 @@ Beautiful Zsh setup with Fish-like features and Starship prompt.
   - OrbStack as the Docker runtime for local infra
   - Neovim LSP for TypeScript, ESLint, Prettier, Tailwind, SQL, Docker
 
+- **Directory navigation** with:
+  - `zoxide` bound to `cd` itself — jump anywhere from a few characters
+  - `fzf` for interactive picking (`Ctrl+T`, `Ctrl+R`, `Alt+C`, `cdi`, `fcd`)
+  - `fd` as the fast, `.gitignore`-aware directory walker behind both
+
 - **Repo organization** with:
   - `~/src/<host>/<org>/<repo>` layout, mirroring the canonical repo path
   - `gclone` / `repo` shell helpers for cloning and jumping between repos
@@ -112,6 +117,66 @@ vice versa, and it's what the per-directory git identity keys off.
 gclone telematicaHQ/os   # clone to ~/src/github.com/telematicaHQ/os and cd in
 repo os                  # jump to any repo under ~/src by name
 ```
+
+`repo` jumps straight there on a single match and opens an `fzf` picker when
+several repos match, rather than silently taking the first hit.
+
+## 🧭 Directory Navigation
+
+You rarely need to type or remember a full path. Three tools cover three
+different situations:
+
+| You want | Use | Notes |
+|---|---|---|
+| A directory you've visited before | `cd <few chars>` | zoxide, ranked by frecency |
+| To browse everything you've visited | `cdi` | fzf picker over the zoxide database |
+| A subdirectory of where you are | `Alt+C` | fzf, standard binding |
+| Any directory under `~/src`, ever visited or not | `fcd [query]` | fzf over the whole tree |
+| A repo by name | `repo <name>` | matches `~/src/<host>/<org>/<repo>` |
+
+### `cd` is zoxide now
+
+`cd` learns every directory you visit and ranks them, so a fragment is enough:
+
+```bash
+cd dot            # -> ~/src/github.com/kshitij-nawandar9/dotfiles
+cd tele os        # -> ~/src/github.com/telematicaHQ/os   (keywords are ANDed)
+cdi               # interactive picker over everything zoxide knows
+```
+
+Ordinary `cd` behaviour is untouched — `cd ..`, `cd ./sub`, `cd ~/src`, `cd -`
+and paths with spaces all go to the real builtin. Only a *non-path* argument is
+treated as a search. Scripts are unaffected: this is an interactive-shell
+function, and non-interactive shells never source `~/.zshrc`.
+
+> zoxide only knows where you've **already been**, so `cd foo` finds nothing on
+> a fresh machine or for a repo you've never opened. That's what `fcd` is for —
+> it searches the actual filesystem. Once you've landed somewhere once, `cd`
+> gets you back.
+
+### Cold search with `fcd`
+
+```bash
+fcd               # fzf over every directory under ~/src
+fcd api           # same, pre-filtered — jumps immediately if only one matches
+```
+
+With multiple matches you get the picker with the best match already on top
+(fzf's `--scheme=path` scores the final path segment highest, so
+`dotfiles/nvim` outranks an incidental hit deep in a `node_modules`-adjacent
+tree). `.git` and `node_modules` are excluded from the walk.
+
+### Keybindings from fzf
+
+- `Ctrl+T` — insert a file path into the current command line
+- `Ctrl+R` — fuzzy history search (replaces the default reverse-search)
+- `Alt+C` — cd into a subdirectory of the current directory
+
+`Alt+C` needs `macos_option_as_alt yes` in `kitty.conf` — already set. Your
+`↑`/`↓` prefix history search is unaffected; fzf only takes `Ctrl+R`.
+
+Everything above is guarded by `command -v`, so `zshrc` stays portable to a
+machine where these tools aren't installed — you just get plain `cd` back.
 
 ## 📗 TypeScript / Node Setup
 
@@ -219,7 +284,8 @@ git push
 
 ## 📝 Files
 
-- `zshrc` - Zsh configuration (portable layer, always overwritten on install)
+- `zshrc` - Zsh configuration (portable layer, always overwritten on install).
+  Includes the zoxide/fzf navigation block — see [Directory Navigation](#-directory-navigation)
 - `zshrc.local` - Machine-local layer: Go env, `GOPRIVATE`, `gclone`/`repo`
   helpers. Seeds `~/.zshrc.local` only if absent — never clobbered
 - `gitconfig` - Git defaults + per-directory identity
@@ -390,6 +456,36 @@ the SSH rewrite isn't applying. Check both:
 echo $GOPRIVATE
 git ls-remote --get-url https://github.com/telematicaHQ/some-repo  # want git@...
 ```
+
+### `cd <name>` says "no match found"
+
+zoxide only knows directories you've actually visited. On a fresh machine its
+database is empty, so seed it by navigating normally for a bit — or use `fcd`,
+which searches the filesystem instead of the history.
+
+If it's a directory you *have* visited, check what zoxide recorded:
+
+```bash
+zoxide query -l | grep -i <name>     # what it knows
+zoxide query -l -s | head            # with frecency scores
+```
+
+### `cd` jumps to the wrong directory
+
+Two directories match and the wrong one scores higher. Either add a second
+keyword (`cd tele os` instead of `cd os`), or correct the ranking:
+
+```bash
+zoxide remove /path/you/never/want    # drop a stale entry
+```
+
+Deleted directories are pruned automatically on the next failed jump.
+
+### `Alt+C` does nothing
+
+The terminal is sending `ç` instead of a real Alt. In Kitty this needs
+`macos_option_as_alt yes` (already in `kitty/kitty.conf`); in Terminal.app it's
+Settings → Profiles → Keyboard → "Use Option as Meta key".
 
 ### Commits show the wrong email
 The per-directory identity only applies under the work org path. Check with

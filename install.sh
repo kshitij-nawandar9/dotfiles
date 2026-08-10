@@ -19,6 +19,11 @@ fi
 echo "📦 Installing shell tools..."
 brew install starship zsh-autosuggestions zsh-syntax-highlighting antidote tldr
 
+# Directory navigation: zoxide replaces `cd`, fzf is the interactive picker,
+# fd is the fast directory/file walker both of them feed from.
+echo "🧭 Installing navigation tools..."
+brew install zoxide fzf fd
+
 # Install dev tooling
 echo "🛠  Installing dev tooling..."
 brew install gh git-delta jq
